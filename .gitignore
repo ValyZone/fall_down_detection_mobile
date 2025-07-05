@@ -1,0 +1,44 @@
+# ========================================
+# Miscellaneous
+# ========================================
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# ========================================
+# IDE/Editor specific
+# ========================================
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Uncomment if you don’t want to track VS Code settings
+#.vscode/
+
+# ========================================
+# Flutter/Dart/Pub related
+# ========================================
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.flutter-versions
+.pub-cache/
+.pub/
+.packages
+build/
+**/build/
+
+# Flutter generated docs
+doc/api/
+
+# Flutter iOS build ar

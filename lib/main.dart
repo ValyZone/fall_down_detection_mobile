@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:sensors_plus/sensors_plus.dart';
 
 void main() {
   runApp(const MyApp());
@@ -32,10 +33,15 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   bool fallDetected = false;
   bool helpCalled = false;
+  bool isRecording = false;
   int secondsLeft = 15;
   Timer? timer;
+  Timer? recordingTimer;
+  StreamSubscription<AccelerometerEvent>? accelerometerSubscription;
   List<String> accelerometerData = [];
+  List<String> realTimeData = [];
   double elapsedTime = 0.0;
+  double recordingTime = 0.0;
   final Random random = Random();
 
   void mockFall() {
@@ -202,6 +208,96 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  void startRealTimeRecording() {
+    print('🎬 Starting real-time recording');
+    setState(() {
+      isRecording = true;
+      recordingTime = 0.0;
+      realTimeData.clear();
+    });
+
+    // Listen to accelerometer events
+    accelerometerSubscription = accelerometerEvents.listen((AccelerometerEvent event) {
+      final currentTime = recordingTime.toStringAsFixed(1);
+      final ax = event.x.toStringAsFixed(2);
+      final ay = event.y.toStringAsFixed(2);
+      final az = event.z.toStringAsFixed(2);
+      final absAcc = sqrt(event.x * event.x + event.y * event.y + event.z * event.z).toStringAsFixed(2);
+      
+      final csvRow = '$currentTime\t$ax\t$ay\t$az\t$absAcc';
+      realTimeData.add(csvRow);
+      
+      // Print occasional debug info
+      if (realTimeData.length % 50 == 0) {
+        print('📊 Real-time data points collected: ${realTimeData.length}');
+      }
+    });
+
+    // Timer to track recording time and send data every 5 seconds
+    recordingTimer = Timer.periodic(const Duration(milliseconds: 100), (t) {
+      setState(() {
+        recordingTime += 0.1;
+      });
+      
+      // Send data every 5 seconds
+      if (recordingTime % 5.0 < 0.1 && realTimeData.isNotEmpty) {
+        sendRealTimeData();
+      }
+    });
+  }
+
+  void stopRealTimeRecording() {
+    print('🛑 Stopping real-time recording');
+    accelerometerSubscription?.cancel();
+    recordingTimer?.cancel();
+    
+    setState(() {
+      isRecording = false;
+    });
+    
+    // Send any remaining data
+    if (realTimeData.isNotEmpty) {
+      sendRealTimeData();
+    }
+  }
+
+  void sendRealTimeData() async {
+    if (realTimeData.isEmpty) return;
+    
+    // Keep only the last 60 seconds of data (approximately 600 data points at 10Hz)
+    final maxDataPoints = 600; // 60 seconds * 10 data points per second
+    List<String> dataToSend = realTimeData;
+    
+    if (realTimeData.length > maxDataPoints) {
+      // Keep only the most recent 60 seconds
+      dataToSend = realTimeData.sublist(realTimeData.length - maxDataPoints);
+      print('📊 Trimming data to last 60 seconds (${dataToSend.length} points)');
+    }
+    
+    print('📡 Sending real-time data (${dataToSend.length} points, max 60 seconds)');
+    
+    final csvHeader = '"Time (s)","Acceleration x (m/s^2)","Acceleration y (m/s^2)","Acceleration z (m/s^2)","Absolute acceleration (m/s^2)"\n';
+    final csvData = csvHeader + dataToSend.join('\n');
+    
+    try {
+      final response = await http.post(
+        Uri.parse('http://192.168.0.100:3030/fall-detection/receive-data'),
+        headers: {'Content-Type': 'text/csv'},
+        body: csvData,
+      );
+      print('✅ Real-time data sent - Status: ${response.statusCode}');
+      print('📝 Response: ${response.body}');
+      
+      // Trim the stored data to keep only last 60 seconds
+      if (realTimeData.length > maxDataPoints) {
+        realTimeData = realTimeData.sublist(realTimeData.length - maxDataPoints);
+        print('🗂️ Trimmed stored data to ${realTimeData.length} points (60 seconds)');
+      }
+    } catch (e) {
+      print('❌ Failed to send real-time data: $e');
+    }
+  }
+
   void callHelp() async {
     print('📞 callHelp() method started');
     setState(() {
@@ -232,6 +328,14 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   @override
+  void dispose() {
+    timer?.cancel();
+    recordingTimer?.cancel();
+    accelerometerSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -242,7 +346,7 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            if (!fallDetected)
+            if (!fallDetected && !isRecording)
               Column(
                 children: [
                   const Text(
@@ -283,6 +387,53 @@ class _MyHomePageState extends State<MyHomePage> {
                         child: const Text('No Fall\nDetected', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: Colors.white)),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 40),
+                  const Text(
+                    'Real-time monitoring:',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: startRealTimeRecording,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 15),
+                    ),
+                    child: const Text('Start Real-Time\nRecording', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.white)),
+                  ),
+                ],
+              ),
+            if (isRecording)
+              Column(
+                children: [
+                  const Text(
+                    '🔴 Recording Real-Time Data',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.red),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Recording time: ${recordingTime.toStringAsFixed(1)}s',
+                    style: const TextStyle(fontSize: 20),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Data points: ${realTimeData.length}',
+                    style: const TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Data is automatically sent every 5 seconds',
+                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 30),
+                  ElevatedButton(
+                    onPressed: stopRealTimeRecording,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+                    ),
+                    child: const Text('Stop Recording', style: TextStyle(fontSize: 18, color: Colors.white)),
                   ),
                 ],
               ),

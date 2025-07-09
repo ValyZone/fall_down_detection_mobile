@@ -35,6 +35,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   http: ^0.13.6  # Add this line (latest stable as of now)
+  sensors_plus: ^4.0.2  # For real-time accelerometer data
 
 dev_dependencies:
   flutter_test:

@@ -111,12 +111,10 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void generateMockFallData(double time) {
-    // Generate data that will be detected as a fall
-    // Phase 1: Normal standing/walking (0.0 - 0.8s)
     if (time <= 0.8) {
       final ax = (0.5 + random.nextDouble() * 0.5).toStringAsFixed(2);
       final ay = (1.0 + random.nextDouble() * 0.5).toStringAsFixed(2);
-      final az = (9.6 + random.nextDouble() * 0.4).toStringAsFixed(2); // Z-axis will be dominant
+      final az = (9.6 + random.nextDouble() * 0.4).toStringAsFixed(2);
       final absAcc = (sqrt(double.parse(ax) * double.parse(ax) +
           double.parse(ay) * double.parse(ay) +
           double.parse(az) * double.parse(az))).toStringAsFixed(2);
@@ -124,11 +122,10 @@ class _MyHomePageState extends State<MyHomePage> {
       final csvRow = '$time\t$ax\t$ay\t$az\t$absAcc';
       accelerometerData.add(csvRow);
     }
-    // Phase 2: Start of fall - losing balance (0.8s - 1.5s)
     else if (time <= 1.5) {
       final ax = (0.3 + random.nextDouble() * 0.4).toStringAsFixed(2);
       final ay = (0.8 + random.nextDouble() * 0.6).toStringAsFixed(2);
-      final az = (0.1 + random.nextDouble() * 0.3).toStringAsFixed(2); // Below 0.5 threshold
+      final az = (0.1 + random.nextDouble() * 0.3).toStringAsFixed(2);
       final absAcc = (sqrt(double.parse(ax) * double.parse(ax) +
           double.parse(ay) * double.parse(ay) +
           double.parse(az) * double.parse(az))).toStringAsFixed(2);
@@ -136,11 +133,10 @@ class _MyHomePageState extends State<MyHomePage> {
       final csvRow = '$time\t$ax\t$ay\t$az\t$absAcc';
       accelerometerData.add(csvRow);
     }
-    // Phase 3: Free fall - very low acceleration (1.5s - 2.0s)
     else if (time <= 2.0) {
       final ax = (0.1 + random.nextDouble() * 0.2).toStringAsFixed(2);
       final ay = (0.2 + random.nextDouble() * 0.3).toStringAsFixed(2);
-      final az = (0.0 + random.nextDouble() * 0.1).toStringAsFixed(2); // Very low, some exactly 0.0
+      final az = (0.0 + random.nextDouble() * 0.1).toStringAsFixed(2);
       final absAcc = (sqrt(double.parse(ax) * double.parse(ax) +
           double.parse(ay) * double.parse(ay) +
           double.parse(az) * double.parse(az))).toStringAsFixed(2);
@@ -148,11 +144,10 @@ class _MyHomePageState extends State<MyHomePage> {
       final csvRow = '$time\t$ax\t$ay\t$az\t$absAcc';
       accelerometerData.add(csvRow);
     }
-    // Phase 4: Impact with ground (2.0s - 2.3s)
     else if (time <= 2.3) {
       final ax = (0.1 + random.nextDouble() * 0.3).toStringAsFixed(2);
       final ay = (0.3 + random.nextDouble() * 0.4).toStringAsFixed(2);
-      final az = '0.0'; // Exact zero for impact detection
+      final az = '0.0';
       final absAcc = (sqrt(double.parse(ax) * double.parse(ax) +
           double.parse(ay) * double.parse(ay) +
           double.parse(az) * double.parse(az))).toStringAsFixed(2);
@@ -160,7 +155,6 @@ class _MyHomePageState extends State<MyHomePage> {
       final csvRow = '$time\t$ax\t$ay\t$az\t$absAcc';
       accelerometerData.add(csvRow);
     }
-    // Phase 5: After impact - recovery/settling (2.3s - 3.0s)
     else {
       final ax = (0.6 + random.nextDouble() * 0.6).toStringAsFixed(2);
       final ay = (1.0 + random.nextDouble() * 0.8).toStringAsFixed(2);
@@ -175,11 +169,9 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void generateMockNoFallData(double time) {
-    // Generate data that will NOT be detected as a fall
-    // Keep all axes above 0.5 threshold and never hit 0.0
     final ax = (0.6 + random.nextDouble() * 0.8).toStringAsFixed(2);
     final ay = (1.0 + random.nextDouble() * 1.0).toStringAsFixed(2);
-    final az = (8.5 + random.nextDouble() * 2.0).toStringAsFixed(2); // Always well above 0.5
+    final az = (8.5 + random.nextDouble() * 2.0).toStringAsFixed(2);
     final absAcc = (sqrt(double.parse(ax) * double.parse(ax) +
         double.parse(ay) * double.parse(ay) +
         double.parse(az) * double.parse(az))).toStringAsFixed(2);
@@ -209,14 +201,12 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void startRealTimeRecording() {
-    print('🎬 Starting real-time recording');
     setState(() {
       isRecording = true;
       recordingTime = 0.0;
       realTimeData.clear();
     });
 
-    // Listen to accelerometer events
     accelerometerSubscription = accelerometerEvents.listen((AccelerometerEvent event) {
       final currentTime = recordingTime.toStringAsFixed(1);
       final ax = event.x.toStringAsFixed(2);
@@ -226,14 +216,8 @@ class _MyHomePageState extends State<MyHomePage> {
       
       final csvRow = '$currentTime\t$ax\t$ay\t$az\t$absAcc';
       realTimeData.add(csvRow);
-      
-      // Print occasional debug info
-      if (realTimeData.length % 50 == 0) {
-        print('📊 Real-time data points collected: ${realTimeData.length}');
-      }
     });
 
-    // Timer to track recording time and send data every 5 seconds
     recordingTimer = Timer.periodic(const Duration(milliseconds: 100), (t) {
       setState(() {
         recordingTime += 0.1;
@@ -247,7 +231,6 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void stopRealTimeRecording() {
-    print('🛑 Stopping real-time recording');
     accelerometerSubscription?.cancel();
     recordingTimer?.cancel();
     
@@ -264,17 +247,12 @@ class _MyHomePageState extends State<MyHomePage> {
   void sendRealTimeData() async {
     if (realTimeData.isEmpty) return;
     
-    // Keep only the last 60 seconds of data (approximately 600 data points at 10Hz)
-    final maxDataPoints = 600; // 60 seconds * 10 data points per second
+    final maxDataPoints = 600;
     List<String> dataToSend = realTimeData;
     
     if (realTimeData.length > maxDataPoints) {
-      // Keep only the most recent 60 seconds
       dataToSend = realTimeData.sublist(realTimeData.length - maxDataPoints);
-      print('📊 Trimming data to last 60 seconds (${dataToSend.length} points)');
     }
-    
-    print('📡 Sending real-time data (${dataToSend.length} points, max 60 seconds)');
     
     final csvHeader = '"Time (s)","Acceleration x (m/s^2)","Acceleration y (m/s^2)","Acceleration z (m/s^2)","Absolute acceleration (m/s^2)"\n';
     final csvData = csvHeader + dataToSend.join('\n');
@@ -285,21 +263,20 @@ class _MyHomePageState extends State<MyHomePage> {
         headers: {'Content-Type': 'text/csv'},
         body: csvData,
       );
-      print('✅ Real-time data sent - Status: ${response.statusCode}');
-      print('📝 Response: ${response.body}');
+      print('Real-time data sent - Status: ${response.statusCode}');
+      print('Response: ${response.body}');
       
       // Trim the stored data to keep only last 60 seconds
       if (realTimeData.length > maxDataPoints) {
         realTimeData = realTimeData.sublist(realTimeData.length - maxDataPoints);
-        print('🗂️ Trimmed stored data to ${realTimeData.length} points (60 seconds)');
       }
     } catch (e) {
-      print('❌ Failed to send real-time data: $e');
+      print('Failed to send real-time data: $e');
     }
   }
 
   void callHelp() async {
-    print('📞 callHelp() method started');
+    print('callHelp() method started');
     setState(() {
       helpCalled = true;
     });
@@ -308,8 +285,7 @@ class _MyHomePageState extends State<MyHomePage> {
         '"Time (s)","Acceleration x (m/s^2)","Acceleration y (m/s^2)","Acceleration z (m/s^2)","Absolute acceleration (m/s^2)"\n';
     final csvData = csvHeader + accelerometerData.join('\n');
 
-    print('🚨 Starting API call to: http://192.168.0.100:3030/fall-detection/receive-data');
-    print('📊 Data length: ${csvData.length} characters');
+    print('Starting API call to: http://192.168.0.100:3030/fall-detection/receive-data');
 
     try {
       final response = await http.post(
@@ -317,11 +293,10 @@ class _MyHomePageState extends State<MyHomePage> {
         headers: {'Content-Type': 'text/csv'},
         body: csvData,
       );
-      print('✅ Response status: ${response.statusCode}');
-      print('📝 Response body: ${response.body}');
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
     } catch (e, stackTrace) {
-      print('❌ Failed to call help: $e');
-      print('📋 Stack trace: $stackTrace');
+      print('Failed to call help: $e');
     }
 
     accelerometerData.clear();

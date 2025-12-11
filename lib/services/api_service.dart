@@ -6,7 +6,9 @@ import '../config.dart';
 class ApiService {
   static const String _csvHeader = '"Time (s)","Acceleration x (m/s^2)",'
       '"Acceleration y (m/s^2)","Acceleration z (m/s^2)",'
-      '"Absolute acceleration (m/s^2)"\n';
+      '"Absolute acceleration (m/s^2)",'
+      '"Gyroscope x (rad/s)","Gyroscope y (rad/s)","Gyroscope z (rad/s)",'
+      '"Gyroscope magnitude (rad/s)"\n';
 
   /// Checks if the server is running and reachable
   static Future<Map<String, dynamic>> checkServerHealth() async {
@@ -73,6 +75,32 @@ class ApiService {
     } catch (e) {
       if (AppConfig.debugMode) {
         print('❌ Error sending data: $e');
+      }
+      rethrow;
+    }
+  }
+
+  /// Sends user fine confirmation to the server
+  static Future<http.Response> sendUserFineConfirmation() async {
+    if (AppConfig.debugMode) {
+      print('✅ Sending user fine confirmation to: ${AppConfig.userFineUrl}');
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse(AppConfig.userFineUrl),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (AppConfig.debugMode) {
+        print('✅ User fine response: ${response.statusCode}');
+        print('📝 Body: ${response.body}');
+      }
+
+      return response;
+    } catch (e) {
+      if (AppConfig.debugMode) {
+        print('❌ Error sending user fine confirmation: $e');
       }
       rethrow;
     }

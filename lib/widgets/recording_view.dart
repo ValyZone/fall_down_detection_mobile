@@ -4,20 +4,23 @@ import 'package:flutter/material.dart';
 class RecordingView extends StatelessWidget {
   final double recordingTime;
   final int dataPointsCount;
+  final List<String> logMessages;
   final VoidCallback onStopRecording;
 
   const RecordingView({
     super.key,
     required this.recordingTime,
     required this.dataPointsCount,
+    required this.logMessages,
     required this.onStopRecording,
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.start,
       children: [
+        const SizedBox(height: 20),
         const Text(
           '🔴 Recording Real-Time Data',
           style: TextStyle(
@@ -37,23 +40,67 @@ class RecordingView extends StatelessWidget {
           style: const TextStyle(fontSize: 16, color: Colors.grey),
         ),
         const SizedBox(height: 20),
-        const Text(
-          'Data is automatically sent every 5 seconds',
-          style: TextStyle(fontSize: 14, color: Colors.grey),
-        ),
-        const SizedBox(height: 30),
         ElevatedButton(
           onPressed: onStopRecording,
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.red,
             padding: const EdgeInsets.symmetric(
               horizontal: 30,
-              vertical: 20,
+              vertical: 15,
             ),
           ),
           child: const Text(
             'Stop Recording',
             style: TextStyle(fontSize: 18, color: Colors.white),
+          ),
+        ),
+        const SizedBox(height: 20),
+        const Divider(thickness: 2),
+        const SizedBox(height: 10),
+        const Text(
+          '📋 Terminal Output',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.black87,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey),
+            ),
+            child: logMessages.isEmpty
+                ? const Center(
+                    child: Text(
+                      'Waiting for logs...',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    reverse: false,
+                    itemCount: logMessages.length,
+                    itemBuilder: (context, index) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Text(
+                          logMessages[index],
+                          style: const TextStyle(
+                            color: Colors.greenAccent,
+                            fontSize: 12,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
           ),
         ),
       ],

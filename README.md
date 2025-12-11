@@ -76,14 +76,30 @@ class AppConfig {
   static const String serverUrl = 'http://192.168.0.100:3030';
   
   // App Settings
-  static const int fallDetectionCountdown = 3;  // seconds
-  static const int maxDataPoints = 600;         // ~60 seconds at 10Hz
-  static const int realTimeUpdateInterval = 5;  // seconds
+  static const int fallDetectionCountdown = 3;        // seconds
+  static const int bufferDurationSeconds = 20;        // Keep 20 seconds of data
+  static const int realTimeUpdateInterval = 5;        // Send data every 5 seconds
+  static const int sensorFrequencyHz = 10;            // Sensor samples per second
+  static int get maxDataPoints => 200;                // 20 seconds at 10Hz
   
   // Debug mode
   static const bool debugMode = false;
 }
 ```
+
+### Data Buffer Behavior
+
+The app maintains a **rolling 20-second buffer** in memory:
+- **Buffer Size**: 200 data points (20 seconds at 10 Hz sampling rate)
+- **Update Cycle**: Every 5 seconds, sends the entire 20-second buffer to server
+- **Rolling Window**: When buffer exceeds 200 points, oldest samples are automatically removed
+- **Example**: At 25 seconds, the buffer contains data from second 5-25 (oldest 5 seconds removed)
+
+This ensures:
+- ✅ Always have context before a potential fall
+- ✅ Efficient memory usage (fixed 200-point buffer)
+- ✅ Continuous monitoring without data loss
+- ✅ Server gets overlapping data for better analysis
 
 ## Usage
 
@@ -179,9 +195,9 @@ The app communicates with the server using the following endpoints:
 
 **Body:**
 ```csv
-"Time (s)","Acceleration x (m/s^2)","Acceleration y (m/s^2)","Acceleration z (m/s^2)","Absolute acceleration (m/s^2)"
-0.0,0.50,1.23,9.81,9.95
-0.1,0.52,1.25,9.80,9.94
+"Time (s)","Acceleration x (m/s^2)","Acceleration y (m/s^2)","Acceleration z (m/s^2)","Absolute acceleration (m/s^2)","Gyroscope x (rad/s)","Gyroscope y (rad/s)","Gyroscope z (rad/s)","Gyroscope magnitude (rad/s)"
+0.0,0.50,1.23,9.81,9.95,0.012,-0.034,0.008,0.037
+0.1,0.52,1.25,9.80,9.94,0.015,-0.031,0.011,0.036
 ...
 ```
 

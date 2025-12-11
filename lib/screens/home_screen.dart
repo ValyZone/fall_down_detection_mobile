@@ -75,11 +75,8 @@ class _HomeScreenState extends State<HomeScreen> {
           };
           _accelerometerData.add(mockData);
 
-          // Update countdown every second
-          if ((_elapsedTime * 10).round() % 10 == 0) {
-            _secondsLeft =
-                AppConfig.fallDetectionCountdown - (_elapsedTime / 1.0).floor();
-          }
+          // Update countdown based on elapsed time
+          _secondsLeft = AppConfig.fallDetectionCountdown - _elapsedTime.floor();
 
           // Timer expired - call for help
           if (_elapsedTime >= AppConfig.fallDetectionCountdown.toDouble()) {
@@ -89,6 +86,42 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       },
     );
+  }
+
+  /// Runs "no fall" test without showing dialog - just sends data to server
+  Future<void> _runNoFallTest() async {
+    // Generate "no fall" data for the full countdown duration
+    final List<String> noFallData = [];
+    for (double time = 0.0;
+        time <= AppConfig.fallDetectionCountdown.toDouble();
+        time += 0.1) {
+      noFallData.add(MockDataGenerator.generateNoFallData(time));
+    }
+
+    try {
+      // Send data directly to server
+      await ApiService.sendAccelerometerData(noFallData);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ No fall data sent successfully'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Error sending data: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   void _confirmWellbeing() {
@@ -244,7 +277,7 @@ class _HomeScreenState extends State<HomeScreen> {
             TestButtons(
               onRandomTest: () => _startMockTest('random'),
               onFallTest: () => _startMockTest('fall'),
-              onNoFallTest: () => _startMockTest('nofall'),
+              onNoFallTest: _runNoFallTest,
               onStartRecording: _startRealTimeRecording,
             ),
           ],

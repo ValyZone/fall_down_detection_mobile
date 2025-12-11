@@ -16,9 +16,6 @@ class RingBuffer<T> {
   /// Number of elements currently in the buffer
   int _count = 0;
 
-  /// Whether the buffer has wrapped around (written past capacity once)
-  bool _hasWrapped = false;
-
   /// Creates a ring buffer with the specified capacity
   RingBuffer(this.capacity) : assert(capacity > 0, 'Capacity must be positive') {
     _buffer = List<T?>.filled(capacity, null);
@@ -32,8 +29,6 @@ class RingBuffer<T> {
 
     if (_count < capacity) {
       _count++;
-    } else {
-      _hasWrapped = true;
     }
   }
 
@@ -68,7 +63,6 @@ class RingBuffer<T> {
     _buffer.fillRange(0, capacity, null);
     _writeIndex = 0;
     _count = 0;
-    _hasWrapped = false;
   }
 
   /// Returns the number of elements currently in the buffer

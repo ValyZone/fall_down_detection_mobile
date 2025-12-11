@@ -232,13 +232,11 @@ class FallDetectorService {
         throw Exception('No sensor data in buffer');
       }
 
-      // Convert to JSON array format
-      final jsonPayload = _convertToJsonPayload(bufferData);
+      // Convert to CSV format for server
+      final csvData = _convertBufferToCsv(bufferData);
 
-      // Send POST request to /analyze
-      final response = await ApiService.sendAccelerometerData(
-        _convertBufferToCsv(bufferData), // Keep CSV for now for compatibility
-      );
+      // Send POST request to /fall-detection/receive-data (CSV endpoint)
+      final response = await ApiService.sendAccelerometerData(csvData);
 
       if (response.statusCode == 200) {
         // Parse server response
@@ -287,14 +285,7 @@ class FallDetectorService {
     }
   }
 
-  /// Converts sensor buffer to JSON array for server
-  List<Map<String, dynamic>> _convertToJsonPayload(List<SensorData> buffer) {
-    if (buffer.isEmpty) return [];
-
-    return buffer.map((data) => data.toJson()).toList();
-  }
-
-  /// Converts sensor buffer to CSV format (for backward compatibility)
+  /// Converts sensor buffer to CSV format for server
   List<String> _convertBufferToCsv(List<SensorData> buffer) {
     if (buffer.isEmpty) return [];
 

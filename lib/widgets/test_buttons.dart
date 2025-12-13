@@ -40,12 +40,12 @@ class TestButtons extends StatelessWidget {
               onPressed: onRandomTest,
             ),
             _TestButton(
-              label: 'Fall\nDetected',
+              label: 'Positive\nAlarm',
               color: Colors.red,
               onPressed: onFallTest,
             ),
             _TestButton(
-              label: 'No Fall\nDetected',
+              label: 'False Positive\nAlarm',
               color: Colors.green,
               onPressed: onNoFallTest,
             ),

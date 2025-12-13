@@ -96,24 +96,50 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Runs "no fall" test without showing dialog - just sends data to server
-  Future<void> _runNoFallTest() async {
-    // Generate "no fall" data for the full countdown duration
-    final List<String> noFallData = [];
-    for (double time = 0.0;
-        time <= AppConfig.fallDetectionCountdown.toDouble();
-        time += 0.1) {
-      noFallData.add(MockDataGenerator.generateNoFallData(time));
-    }
-
+  /// Runs "positive alarm" test - fetches and sends mock positive data from server
+  Future<void> _runPositiveAlarmTest() async {
     try {
-      // Send data directly to server
-      await ApiService.sendAccelerometerData(noFallData);
+      // Fetch mock positive data from server
+      final mockData = await ApiService.fetchMockData('positive');
+
+      // Send data to server for analysis
+      await ApiService.sendAccelerometerData(mockData);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ No fall data sent successfully'),
+            content: Text('✅ Positive alarm data sent successfully'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Error sending data: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  /// Runs "false positive alarm" test - fetches and sends mock false positive data from server
+  Future<void> _runFalsePositiveAlarmTest() async {
+    try {
+      // Fetch mock false positive data from server
+      final mockData = await ApiService.fetchMockData('false-positive');
+
+      // Send data to server for analysis
+      await ApiService.sendAccelerometerData(mockData);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ False positive alarm data sent successfully'),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
           ),
@@ -433,8 +459,8 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 20),
             TestButtons(
               onRandomTest: () => _startMockTest('random'),
-              onFallTest: () => _startMockTest('fall'),
-              onNoFallTest: _runNoFallTest,
+              onFallTest: _runPositiveAlarmTest,
+              onNoFallTest: _runFalsePositiveAlarmTest,
               onStartRecording: _startRealTimeRecording,
             ),
           ],

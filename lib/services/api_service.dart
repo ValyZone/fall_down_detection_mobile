@@ -105,4 +105,36 @@ class ApiService {
       rethrow;
     }
   }
+
+  /// Fetches mock dataset from the server
+  static Future<List<String>> fetchMockData(String dataType) async {
+    final url = '${AppConfig.serverUrl}/mock-data/$dataType';
+
+    if (AppConfig.debugMode) {
+      print('📥 Fetching mock data from: $url');
+    }
+
+    try {
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        // Parse CSV data - skip header line and return data rows
+        final lines = response.body.split('\n');
+        final dataRows = lines.skip(1).where((line) => line.trim().isNotEmpty).toList();
+
+        if (AppConfig.debugMode) {
+          print('✅ Fetched ${dataRows.length} data points');
+        }
+
+        return dataRows;
+      } else {
+        throw Exception('Failed to fetch mock data: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (AppConfig.debugMode) {
+        print('❌ Error fetching mock data: $e');
+      }
+      rethrow;
+    }
+  }
 }

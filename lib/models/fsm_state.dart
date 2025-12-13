@@ -1,102 +1,38 @@
-/// Represents the states of the Fall Detection Finite State Machine.
-///
-/// The FSM transitions through these states based on sensor data analysis:
-/// Monitoring → StationarityCheck → Upload → (back to Monitoring)
+/// Fall Detection FSM State Definitions
 enum FallDetectionState {
-  /// Normal operation: continuously recording sensor data to circular buffer.
-  /// Monitoring for high-G impact events (SVM > 3.5g).
+  /// State 1: Continuous monitoring for high-G impacts
   monitoring,
 
-  /// Impact detected: checking for stationarity within the impact window.
-  /// Checking accelerometer std dev < 0.05 and gyroscope rotation < 0.1 rad/s.
+  /// State 2: Impact detected, waiting for device to become stationary
   stationarityCheck,
 
-  /// Crash confirmed: uploading buffered data to server for post-mortem analysis.
-  /// Server validates impact and checks post-impact silence.
+  /// State 3: Upload buffer to server for analysis
   upload,
 }
 
-/// Extension to provide human-readable descriptions of FSM states
+/// Extension methods for FallDetectionState
 extension FallDetectionStateExtension on FallDetectionState {
-  /// Returns a human-readable name for the state
-  String get displayName {
+  /// Human-readable name
+  String get name {
     switch (this) {
       case FallDetectionState.monitoring:
         return 'Monitoring';
       case FallDetectionState.stationarityCheck:
-        return 'Checking Stationarity';
+        return 'Stationarity Check';
       case FallDetectionState.upload:
-        return 'Uploading Data';
+        return 'Upload';
     }
   }
 
-  /// Returns a detailed description of what happens in this state
+  /// State description
   String get description {
     switch (this) {
       case FallDetectionState.monitoring:
-        return 'Continuously recording sensor data, watching for impact';
+        return 'Watching for high-G impacts';
       case FallDetectionState.stationarityCheck:
-        return 'Impact detected, checking for stationarity';
+        return 'Waiting for device to stop moving';
       case FallDetectionState.upload:
-        return 'Uploading data to server for post-mortem analysis';
+        return 'Sending data to server';
     }
-  }
-
-  /// Returns true if this state requires active sensor monitoring
-  bool get requiresSensorMonitoring {
-    return this == FallDetectionState.monitoring ||
-        this == FallDetectionState.stationarityCheck;
-  }
-
-  /// Returns true if this state represents a potential or confirmed fall
-  bool get isFallDetected {
-    return this == FallDetectionState.stationarityCheck ||
-        this == FallDetectionState.upload;
-  }
-}
-
-/// Represents a state transition event with timestamp and reason
-class StateTransitionEvent {
-  /// The previous state
-  final FallDetectionState fromState;
-
-  /// The new state
-  final FallDetectionState toState;
-
-  /// When the transition occurred
-  final DateTime timestamp;
-
-  /// Reason for the transition (for logging/debugging)
-  final String reason;
-
-  /// Additional metadata about the transition
-  final Map<String, dynamic>? metadata;
-
-  const StateTransitionEvent({
-    required this.fromState,
-    required this.toState,
-    required this.timestamp,
-    required this.reason,
-    this.metadata,
-  });
-
-  @override
-  String toString() {
-    return 'StateTransition('
-        '${fromState.displayName} → ${toState.displayName}, '
-        'reason: $reason, '
-        'time: ${timestamp.toIso8601String()}'
-        ')';
-  }
-
-  /// Converts to JSON for logging
-  Map<String, dynamic> toJson() {
-    return {
-      'fromState': fromState.name,
-      'toState': toState.name,
-      'timestamp': timestamp.toIso8601String(),
-      'reason': reason,
-      if (metadata != null) 'metadata': metadata,
-    };
   }
 }

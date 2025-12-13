@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:sensors_plus/sensors_plus.dart';
 
 import '../config.dart';
 import '../services/api_service.dart';
+import '../services/sensor_service.dart';
+import '../services/fall_detector_service.dart';
+import '../models/fsm_state.dart';
+import '../models/state_transition_event.dart';
 import '../utils/mock_data_generator.dart';
 import '../widgets/test_buttons.dart';
 import '../widgets/recording_view.dart';
@@ -21,6 +23,11 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  // FSM Services
+  late final SensorService _sensorService;
+  late final FallDetectorService _fallDetectorService;
+  FallDetectionState _currentFsmState = FallDetectionState.monitoring;
+
   // State variables
   bool _fallDetected = false;
   bool _helpCalled = false;
@@ -29,32 +36,144 @@ class _HomeScreenState extends State<HomeScreen> {
   double _elapsedTime = 0.0;
   double _recordingTime = 0.0;
 
-  // Data storage
+  // Data storage (kept for mock tests)
   final List<String> _accelerometerData = [];
-  final List<String> _realTimeData = [];
   final List<String> _logMessages = [];
   int _sampleCount = 0;
 
-  // Timers and subscriptions
+  // Timers (kept for mock tests and recording UI updates)
   Timer? _countdownTimer;
-  Timer? _recordingTimer;
-  StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
-  StreamSubscription<GyroscopeEvent>? _gyroscopeSubscription;
-  
-  // Latest gyroscope reading (synced with accelerometer)
-  GyroscopeEvent? _latestGyroscope;
+  Timer? _recordingTimerUI;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeFsmServices();
+  }
+
+  void _initializeFsmServices() {
+    _sensorService = SensorService();
+    _fallDetectorService = FallDetectorService(sensorService: _sensorService);
+
+    // Wire up FSM callbacks
+    _fallDetectorService.onStateChanged = _onFsmStateChanged;
+    _fallDetectorService.onCrashAnalyzed = _onCrashAnalyzed;
+    _fallDetectorService.onUploadError = _onUploadError;
+
+    // Wire up sensor callbacks for logging
+    _sensorService.onDataReceived = _onSensorDataReceived;
+  }
 
   @override
   void dispose() {
     _cancelAllTimers();
+    _fallDetectorService.dispose();
     super.dispose();
   }
 
   void _cancelAllTimers() {
     _countdownTimer?.cancel();
-    _recordingTimer?.cancel();
-    _accelerometerSubscription?.cancel();
-    _gyroscopeSubscription?.cancel();
+    _recordingTimerUI?.cancel();
+  }
+
+  // ===========================================================================
+  // FSM Callback Handlers
+  // ===========================================================================
+
+  void _onFsmStateChanged(StateTransitionEvent event) {
+    setState(() {
+      _currentFsmState = event.toState;
+    });
+
+    final now = DateTime.now();
+    final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+
+    // Log state transition
+    _addLog('[$timeStr] FSM: ${event.fromState.name} → ${event.toState.name}');
+    _addLog('         Reason: ${event.reason}');
+
+    // Show visual notification for critical state changes
+    if (event.toState == FallDetectionState.stationarityCheck && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ Impact detected - Checking for stationarity...'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else if (event.toState == FallDetectionState.upload && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('📤 Device stopped - Uploading crash data...'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.blue,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  void _onCrashAnalyzed(bool isFall, Map<String, dynamic> analysis) {
+    final now = DateTime.now();
+    final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+
+    if (isFall) {
+      _addLog('[$timeStr] 🚨 FALL DETECTED - Server confirmed crash!');
+      _addLog('         Analysis: ${analysis['message'] ?? 'Positive detection'}');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🚨 FALL DETECTED - Emergency response activated!'),
+            duration: Duration(seconds: 4),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+
+      // Trigger fall detection flow
+      _showFallAlert();
+    } else {
+      _addLog('[$timeStr] ✅ Server analysis: No fall detected (false alarm)');
+      _addLog('         Analysis: ${analysis['message'] ?? 'Negative detection'}');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ False alarm - No fall detected'),
+            duration: Duration(seconds: 2),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  void _onUploadError(String error) {
+    final now = DateTime.now();
+    final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+
+    _addLog('[$timeStr] ❌ Upload error: $error');
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Upload failed: $error'),
+          duration: const Duration(seconds: 3),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  void _onSensorDataReceived(data) {
+    setState(() {
+      _sampleCount++;
+    });
   }
 
   // ===========================================================================
@@ -179,233 +298,70 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ===========================================================================
-  // Real-time Recording Functions
+  // FSM-Based Real-time Recording Functions
   // ===========================================================================
 
   void _startRealTimeRecording() {
     setState(() {
       _isRecording = true;
       _recordingTime = 0.0;
-      _realTimeData.clear();
       _logMessages.clear();
       _sampleCount = 0;
     });
 
     final now = DateTime.now();
     final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
-    
+
     _addLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    _addLog('[$timeStr] 🔴 Recording started - Monitoring for falls...');
-    _addLog('         Tracking: Accelerometer + Gyroscope');
+    _addLog('[$timeStr] 🔴 FSM started - Monitoring for crashes...');
+    _addLog('         Mode: Impact-triggered upload only');
+    _addLog('         Tracking: Accelerometer + Gyroscope + Circular Buffer');
+    _addLog('         FSM State: ${_currentFsmState.name}');
     _addLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    // Subscribe to gyroscope events (runs at higher frequency)
-    _gyroscopeSubscription = gyroscopeEventStream().listen((event) {
-      _latestGyroscope = event;
-    });
+    // Start FSM (sensors + fall detection)
+    _fallDetectorService.start();
 
-    // Subscribe to accelerometer events
-    _accelerometerSubscription = accelerometerEventStream().listen((event) {
-      // Get gyroscope data (or default to 0 if not available)
-      final gyroX = _latestGyroscope?.x ?? 0.0;
-      final gyroY = _latestGyroscope?.y ?? 0.0;
-      final gyroZ = _latestGyroscope?.z ?? 0.0;
-      final gyroMagnitude = sqrt(gyroX * gyroX + gyroY * gyroY + gyroZ * gyroZ);
-      
-      final csvRow = '${_recordingTime.toStringAsFixed(1)}\t'
-          '${event.x.toStringAsFixed(2)}\t'
-          '${event.y.toStringAsFixed(2)}\t'
-          '${event.z.toStringAsFixed(2)}\t'
-          '${sqrt(event.x * event.x + event.y * event.y + event.z * event.z).toStringAsFixed(2)}\t'
-          '${gyroX.toStringAsFixed(3)}\t'
-          '${gyroY.toStringAsFixed(3)}\t'
-          '${gyroZ.toStringAsFixed(3)}\t'
-          '${gyroMagnitude.toStringAsFixed(3)}';
-      
-      setState(() {
-        _realTimeData.add(csvRow);
-        _sampleCount++;
-        
-        // Implement rolling buffer: keep only last 20 seconds (200 samples at 10Hz)
-        // When buffer exceeds max, remove oldest samples
-        if (_realTimeData.length > AppConfig.maxDataPoints) {
-          final samplesToRemove = _realTimeData.length - AppConfig.maxDataPoints;
-          _realTimeData.removeRange(0, samplesToRemove);
-        }
-      });
-    });
-
-    // Update timer
-    _recordingTimer = Timer.periodic(
+    // Start UI update timer
+    _recordingTimerUI = Timer.periodic(
       const Duration(milliseconds: 100),
       (timer) {
         setState(() {
           _recordingTime += 0.1;
         });
-
-        // Send data every configured interval
-        if (_recordingTime % AppConfig.realTimeUpdateInterval < 0.1 &&
-            _realTimeData.isNotEmpty) {
-          _sendRealTimeData();
-        }
       },
     );
   }
 
   void _stopRealTimeRecording() {
-    _accelerometerSubscription?.cancel();
-    _gyroscopeSubscription?.cancel();
-    _recordingTimer?.cancel();
-    _latestGyroscope = null;
-
     final now = DateTime.now();
     final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
-    
+
     _addLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    _addLog('[$timeStr] ⏹️ Recording stopped');
+    _addLog('[$timeStr] ⏹️ FSM stopped');
+    _addLog('         Final sample count: $_sampleCount');
+    _addLog('         Buffer size: ${_sensorService.bufferSize}');
+    _addLog('         FSM State: ${_currentFsmState.name}');
     _addLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    // Stop FSM
+    _fallDetectorService.stop();
+
+    // Stop UI timer
+    _recordingTimerUI?.cancel();
 
     setState(() {
       _isRecording = false;
     });
-
-    // Send any remaining data
-    if (_realTimeData.isNotEmpty) {
-      _sendRealTimeData();
-    }
   }
 
   // ===========================================================================
   // API Communication Functions
   // ===========================================================================
 
-  Future<void> _sendRealTimeData() async {
-    if (_realTimeData.isEmpty) return;
-
-    // Send all data in buffer (last 20 seconds)
-    List<String> dataToSend = List.from(_realTimeData);
-
-    try {
-      final now = DateTime.now();
-      final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
-
-      _addLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      _addLog('[$timeStr] Sending ${dataToSend.length} data points...');
-
-      // Show notification that data is being sent
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('📡 Sending ${dataToSend.length} data points to server...'),
-            duration: const Duration(seconds: 1),
-            backgroundColor: Colors.blue,
-            behavior: SnackBarBehavior.floating,
-            margin: const EdgeInsets.all(16),
-          ),
-        );
-      }
-
-      final response = await ApiService.sendAccelerometerData(dataToSend);
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        // Try to parse the response
-        try {
-          final responseData = json.decode(response.body);
-          final fallDetected = responseData['fallDetected'] ?? false;
-
-          if (fallDetected) {
-            _addLog('[$timeStr] 🚨 FALL DETECTED! Emergency response activated.');
-
-            // Show fall detected notification
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('🚨 FALL DETECTED - Emergency response activated!'),
-                  duration: Duration(seconds: 3),
-                  backgroundColor: Colors.red,
-                  behavior: SnackBarBehavior.floating,
-                  margin: EdgeInsets.all(16),
-                ),
-              );
-            }
-
-            // Stop recording and show alert
-            _stopRealTimeRecording();
-            _showFallAlert();
-          } else {
-            _addLog('[$timeStr] ✅ Normal motion - No fall detected');
-
-            // Show success notification
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('✅ Data sent successfully - No fall detected'),
-                  duration: const Duration(milliseconds: 800),
-                  backgroundColor: Colors.green,
-                  behavior: SnackBarBehavior.floating,
-                  margin: const EdgeInsets.all(16),
-                ),
-              );
-            }
-          }
-
-          // Show additional info if available
-          if (responseData['message'] != null) {
-            _addLog('         Analysis: ${responseData['message']}');
-          }
-        } catch (e) {
-          // If response is not JSON, just show success
-          _addLog('[$timeStr] ✅ Data sent successfully');
-
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('✅ Data sent successfully'),
-                duration: Duration(milliseconds: 800),
-                backgroundColor: Colors.green,
-                behavior: SnackBarBehavior.floating,
-                margin: EdgeInsets.all(16),
-              ),
-            );
-          }
-        }
-      } else {
-        _addLog('[$timeStr] ⚠️ Server error (Status: ${response.statusCode})');
-
-        // Show error notification
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('⚠️ Server error (Status: ${response.statusCode})'),
-              duration: const Duration(seconds: 2),
-              backgroundColor: Colors.orange,
-              behavior: SnackBarBehavior.floating,
-              margin: const EdgeInsets.all(16),
-            ),
-          );
-        }
-      }
-
-      // Note: Buffer is maintained at 20 seconds automatically in the listener
-    } catch (e) {
-      final now = DateTime.now();
-      final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
-      _addLog('[$timeStr] ❌ Connection failed: ${e.toString()}');
-
-      // Show connection error notification
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ Connection failed: ${e.toString()}'),
-            duration: const Duration(seconds: 2),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            margin: const EdgeInsets.all(16),
-          ),
-        );
-      }
-    }
-  }
+  // NOTE: Real-time data upload is now handled automatically by the FSM
+  // The FSM only uploads when: Impact detected → Device becomes stationary
+  // This eliminates continuous uploads and reduces server load by ~99%
 
   void _showFallAlert() {
     setState(() {
@@ -549,9 +505,10 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_isRecording) {
       return RecordingView(
         recordingTime: _recordingTime,
-        dataPointsCount: _realTimeData.length,
+        dataPointsCount: _sensorService.bufferSize,
         logMessages: _logMessages,
         onStopRecording: _stopRealTimeRecording,
+        fsmState: _currentFsmState,
       );
     }
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import '../models/fsm_state.dart';
+import '../models/state_transition_event.dart';
 import '../models/sensor_data.dart';
 import '../services/sensor_service.dart';
 import '../services/api_service.dart';
@@ -104,7 +105,7 @@ class FallDetectorService {
 
     // Log transition
     if (AppConfig.debugMode) {
-      print('FSM: ${event.fromState.displayName} → ${event.toState.displayName} ($reason)');
+      print('FSM: ${event.fromState.name} → ${event.toState.name} ($reason)');
     }
   }
 
@@ -273,7 +274,7 @@ class FallDetectorService {
       _logCrashEvent(
         isFall: null, // Unknown due to upload failure
         analysis: {'error': e.toString()},
-        bufferSize: sensorService.bufferLength,
+        bufferSize: sensorService.bufferSize,
       );
 
       // Return to monitoring

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/fsm_state.dart';
 
 /// Widget that displays the recording state
 class RecordingView extends StatelessWidget {
@@ -6,6 +7,7 @@ class RecordingView extends StatelessWidget {
   final int dataPointsCount;
   final List<String> logMessages;
   final VoidCallback onStopRecording;
+  final FallDetectionState? fsmState;
 
   const RecordingView({
     super.key,
@@ -13,6 +15,7 @@ class RecordingView extends StatelessWidget {
     required this.dataPointsCount,
     required this.logMessages,
     required this.onStopRecording,
+    this.fsmState,
   });
 
   @override
@@ -36,9 +39,27 @@ class RecordingView extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         Text(
-          'Data points: $dataPointsCount',
+          'Buffer size: $dataPointsCount',
           style: const TextStyle(fontSize: 16, color: Colors.grey),
         ),
+        if (fsmState != null) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: _getStateColor(fsmState!),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              'FSM: ${fsmState!.name}',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 20),
         ElevatedButton(
           onPressed: onStopRecording,
@@ -105,5 +126,17 @@ class RecordingView extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  /// Get color for FSM state indicator
+  Color _getStateColor(FallDetectionState state) {
+    switch (state) {
+      case FallDetectionState.monitoring:
+        return Colors.green;
+      case FallDetectionState.stationarityCheck:
+        return Colors.orange;
+      case FallDetectionState.upload:
+        return Colors.blue;
+    }
   }
 }

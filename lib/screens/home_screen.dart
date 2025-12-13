@@ -288,28 +288,67 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final now = DateTime.now();
       final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
-      
+
       _addLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       _addLog('[$timeStr] Sending ${dataToSend.length} data points...');
-      
+
+      // Show notification that data is being sent
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('📡 Sending ${dataToSend.length} data points to server...'),
+            duration: const Duration(seconds: 1),
+            backgroundColor: Colors.blue,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+      }
+
       final response = await ApiService.sendAccelerometerData(dataToSend);
-      
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         // Try to parse the response
         try {
           final responseData = json.decode(response.body);
           final fallDetected = responseData['fallDetected'] ?? false;
-          
+
           if (fallDetected) {
             _addLog('[$timeStr] 🚨 FALL DETECTED! Emergency response activated.');
-            
+
+            // Show fall detected notification
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('🚨 FALL DETECTED - Emergency response activated!'),
+                  duration: Duration(seconds: 3),
+                  backgroundColor: Colors.red,
+                  behavior: SnackBarBehavior.floating,
+                  margin: EdgeInsets.all(16),
+                ),
+              );
+            }
+
             // Stop recording and show alert
             _stopRealTimeRecording();
             _showFallAlert();
           } else {
             _addLog('[$timeStr] ✅ Normal motion - No fall detected');
+
+            // Show success notification
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('✅ Data sent successfully - No fall detected'),
+                  duration: const Duration(milliseconds: 800),
+                  backgroundColor: Colors.green,
+                  behavior: SnackBarBehavior.floating,
+                  margin: const EdgeInsets.all(16),
+                ),
+              );
+            }
           }
-          
+
           // Show additional info if available
           if (responseData['message'] != null) {
             _addLog('         Analysis: ${responseData['message']}');
@@ -317,16 +356,54 @@ class _HomeScreenState extends State<HomeScreen> {
         } catch (e) {
           // If response is not JSON, just show success
           _addLog('[$timeStr] ✅ Data sent successfully');
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✅ Data sent successfully'),
+                duration: Duration(milliseconds: 800),
+                backgroundColor: Colors.green,
+                behavior: SnackBarBehavior.floating,
+                margin: EdgeInsets.all(16),
+              ),
+            );
+          }
         }
       } else {
         _addLog('[$timeStr] ⚠️ Server error (Status: ${response.statusCode})');
+
+        // Show error notification
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('⚠️ Server error (Status: ${response.statusCode})'),
+              duration: const Duration(seconds: 2),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+              margin: const EdgeInsets.all(16),
+            ),
+          );
+        }
       }
-      
+
       // Note: Buffer is maintained at 20 seconds automatically in the listener
     } catch (e) {
       final now = DateTime.now();
       final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
       _addLog('[$timeStr] ❌ Connection failed: ${e.toString()}');
+
+      // Show connection error notification
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Connection failed: ${e.toString()}'),
+            duration: const Duration(seconds: 2),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+      }
     }
   }
 

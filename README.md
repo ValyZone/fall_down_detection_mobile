@@ -1,203 +1,125 @@
 # Fall Detection Mobile App
 
-Flutter mobile application that detects motorcycle crashes using accelerometer and gyroscope sensors.
+Flutter mobilalkalmazás motoros balesetek detektálására gyorsulásmérő és giroszkóp szenzorok segítségével.
 
-## How It Works
+> **Megjegyzés:** A projekt részletes dokumentációja külön dokumentumban található.
 
-The app uses a **3-State Finite State Machine (FSM)** to detect crashes:
+## Előfeltételek
 
-```
-1. MONITORING → Continuously records sensor data in a circular buffer
-   ↓ (Impact detected: SVM > 3.5g)
+- Flutter SDK (legújabb stabil verzió)
+- Fizikai eszköz szenzorral (emulátor nem működik)
+- Futó backend szerver
 
-2. STATIONARITY CHECK → Waits for device to become motionless
-   ↓ (Device becomes still: low variance + low rotation)
+## Telepítés
 
-3. UPLOAD → Sends buffer data to server for analysis
-   ↓ (Server analyzes with 3-phase algorithm)
-
-→ Back to MONITORING
-```
-
-### Detection Criteria
-
-**Impact Detection:**
-- Sensor Vector Magnitude (SVM) exceeds **3.5g** (34.335 m/s²)
-- Triggers transition to stationarity check state
-
-**Stationarity Detection:**
-- Accelerometer standard deviation < **0.5 m/s²** (over 1 second)
-- AND gyroscope magnitude < **0.1 rad/s**
-- Confirms device is at rest after crash
-
-**Result:**
-- If both conditions met → uploads data to server
-- Server performs sophisticated 3-phase crash analysis
-- Discord notification sent if crash confirmed
-
-## Setup
-
-### Prerequisites
-- Flutter SDK (latest stable)
-- Physical device with sensors (emulator won't work)
-- Backend server running
-
-### Installation
-
-1. **Install dependencies:**
+1. **Függőségek telepítése:**
    ```bash
    flutter pub get
    ```
 
-2. **Configure server URL:**
+2. **Szerver URL konfigurálása:**
 
-   Edit `lib/config.dart`:
+   Szerkeszd a `lib/config.dart` fájlt:
    ```dart
    static const String serverUrl = 'http://YOUR_SERVER_IP:3030';
    ```
 
-3. **Run the app:**
+3. **Alkalmazás futtatása:**
    ```bash
    flutter run
    ```
 
-## Configuration
+## Elérhető parancsok
 
-All settings in `lib/config.dart`:
+### Fejlesztés
 
-```dart
-// Server
-static const String serverUrl = 'http://192.168.0.100:3030';
+```bash
+#Függőségek telepítése/frissítése
+flutter pub get
 
-// Detection Parameters
-static const int impactWindowSeconds = 10;          // Time to detect stationarity
-static const int postImpactCollectionSeconds = 5;   // Extra data after stationarity
-static const double impactThreshold = 34.335;       // 3.5g in m/s²
-static const double varianceThreshold = 0.5;        // For motionless detection
-static const double gyroscopeThreshold = 0.1;       // rad/s for rotation
-static const int bufferCapacity = 1000;             // ~20s at 50Hz
-
-// Debug
-static const bool debugMode = true;  // Set false in production
-```
-
-## Usage
-
-### Test Server Connection
-1. Open app
-2. Tap **"Test Connection"** in the Server Connection card
-3. Verify green checkmark appears
-
-### Real-Time Monitoring
-1. Tap **"Start Real-Time Recording"**
-2. App monitors sensors continuously
-3. On impact → checks for stationarity → uploads if still
-4. Tap **"Stop Recording"** when done
-
-### Mock Testing
-Use the test buttons to send pre-generated data:
-- **Positive Alarm** - Simulated crash data (should detect)
-- **False Positive Alarm** - Non-crash data (should not detect)
-
-## Architecture
+# App futtatása fejlesztői módban, telefon legyen USB-vel csatlakoztatva
+flutter run
 
 ```
-lib/
-├── config.dart                        # All configuration
-├── main.dart                          # App entry point
-├── models/
-│   ├── fsm_state.dart                # FSM states (Monitoring/StationarityCheck/Upload)
-│   ├── state_transition_event.dart   # FSM transition events
-│   ├── sensor_data.dart              # Sensor reading model
-│   └── ring_buffer.dart              # Circular buffer implementation
-├── services/
-│   ├── fall_detector_service.dart    # FSM orchestration
-│   ├── sensor_service.dart           # Sensor data collection
-│   └── api_service.dart              # Server communication
-├── screens/
-│   └── home_screen.dart              # Main UI
-├── widgets/
-│   ├── recording_view.dart           # Recording state UI
-│   ├── connection_tester.dart        # Server connection widget
-│   └── test_buttons.dart             # Mock test buttons
-└── utils/
-    ├── sensor_math.dart              # SVM calculations
-    └── mock_data_generator.dart      # Test data generation
+
+### Build
+
+```bash
+# Android APK build
+flutter build apk
 ```
 
-## Data Flow
+### Tesztelés
 
-```
-Sensors (50 Hz)
-     ↓
-SensorService (circular buffer, impact/stationarity detection)
-     ↓
-FallDetectorService (FSM state management)
-     ↓
-ApiService (CSV upload to server)
-     ↓
-Server (3-phase crash analysis)
-     ↓
-Discord Notification (if crash confirmed)
+```bash
+# Unit tesztek futtatása
+flutter test
+
+# Tesztek futtatása lefedettségi jelentéssel
+flutter test --coverage
+
+# Specifikus teszt fájl futtatása
+flutter test test/models/ring_buffer_test.dart
 ```
 
-## Circular Buffer
+### Kód minőség
 
-- **Capacity:** 1000 samples (~20 seconds at 50Hz)
-- **Behavior:** Oldest data removed when full
-- **Purpose:** Always have crash context when upload triggered
-- **Upload:** Freezes entire buffer and sends to server
-
-## API Communication
-
-### POST /fall-detection/receive-data
-Sends CSV data to server for analysis.
-
-**Headers:** `Content-Type: text/csv`
-
-**Body Format:**
-```csv
-"Time (s)","Acceleration x (m/s^2)","Acceleration y (m/s^2)","Acceleration z (m/s^2)","Absolute acceleration (m/s^2)","Gyroscope x (rad/s)","Gyroscope y (rad/s)","Gyroscope z (rad/s)","Gyroscope magnitude (rad/s)"
-0.0,0.50,1.23,9.81,9.95,0.012,-0.034,0.008,0.037
+```bash
+# Kód elemzés (lint)
+flutter analyze
 ```
 
-**Response:**
-```json
-{
-  "fallDetected": true,
-  "filename": "acceleration-data-2025-12-14T10-30-00-000Z.csv",
-  "timestamp": "2025-12-14T10:30:00.000Z"
-}
+### Eszközök és diagnosztika
+
+```bash
+# Csatlakozott eszközök listája
+flutter devices
+
+# Flutter doktor (környezet ellenőrzése)
+flutter doctor
+
+# Alkalmazás tisztítása (build fájlok törlése)
+flutter clean
 ```
 
-### GET /health
-Health check endpoint.
+### Hibakeresés
 
-### GET /mock-data/{type}
-Fetches mock data (`positive` or `false-positive`).
+```bash
+# Részletes logokkal való futtatás
+flutter run -v
 
-## Troubleshooting
+# Specifikus eszközön futtatás
+flutter run -d <device-id>
 
-**Can't connect to server:**
-- Verify server is running
-- Check device and server on same network
-- Update `serverUrl` in config.dart with correct IP
-
-**Sensors not working:**
-- Must use physical device (emulator has no real sensors)
-- Check app permissions
-
-**Debug logging:**
-Set `debugMode = true` in config.dart to see detailed logs.
-
-## Dependencies
-
-```yaml
-dependencies:
-  sensors_plus: ^6.0.1    # Accelerometer + gyroscope
-  http: ^1.2.2            # HTTP requests
+# Debug információk megtekintése
+flutter logs
 ```
 
-## License
+## Függőségek
 
-ISC
+Az alkalmazás a következő főbb függőségeket használja:
+
+- **sensors_plus**: Szenzor adatok (gyorsulásmérő, giroszkóp) olvasása
+- **http**: HTTP kommunikáció a backend szerverrel
+- **cupertino_icons**: iOS stílusú ikonok
+
+A teljes függőségi lista a `pubspec.yaml` fájlban található.
+
+## Első lépések
+
+1. Telepítsd a függőségeket: `flutter pub get`
+2. Konfiguráld a szerver URL-t a `lib/config.dart` fájlban
+3. Csatlakoztass egy fizikai eszközt
+4. Futtasd az alkalmazást: `flutter run`
+5. Az alkalmazásban teszteld a szerver kapcsolatot a "Test Connection" gombbal
+
+## Hibaelhárítás
+
+**Nem tud csatlakozni a szerverhez:**
+- Ellenőrizd, hogy a szerver fut-e
+- Az eszköz és a szerver ugyanazon a hálózaton van-e
+- A `config.dart` fájlban a helyes IP cím van-e beállítva
+
+**Szenzorok nem működnek:**
+- Csak fizikai eszközön működik (emulátornak nincsenek valós szenzorok)
+- Ellenőrizd az alkalmazás engedélyeit

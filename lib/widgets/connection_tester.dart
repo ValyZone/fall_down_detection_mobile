@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../config.dart';
 
-/// Widget that displays server connection status and test button
 class ConnectionTester extends StatefulWidget {
   const ConnectionTester({super.key});
 
@@ -57,7 +56,6 @@ class _ConnectionTesterState extends State<ConnectionTester> {
             ),
             const SizedBox(height: 12),
 
-            // Server URL Display
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -83,7 +81,6 @@ class _ConnectionTesterState extends State<ConnectionTester> {
             ),
             const SizedBox(height: 12),
 
-            // Test Button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -107,7 +104,6 @@ class _ConnectionTesterState extends State<ConnectionTester> {
               ),
             ),
 
-            // Status Message
             if (_statusMessage != null) ...[
               const SizedBox(height: 12),
               Container(

@@ -23,12 +23,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // FSM Services
   late final SensorService _sensorService;
   late final FallDetectorService _fallDetectorService;
   FallDetectionState _currentFsmState = FallDetectionState.monitoring;
 
-  // State variables
   bool _fallDetected = false;
   bool _helpCalled = false;
   bool _isRecording = false;
@@ -36,12 +34,10 @@ class _HomeScreenState extends State<HomeScreen> {
   double _elapsedTime = 0.0;
   double _recordingTime = 0.0;
 
-  // Data storage (kept for mock tests)
   final List<String> _accelerometerData = [];
   final List<String> _logMessages = [];
   int _sampleCount = 0;
 
-  // Timers (kept for mock tests and recording UI updates)
   Timer? _countdownTimer;
   Timer? _recordingTimerUI;
 
@@ -55,12 +51,10 @@ class _HomeScreenState extends State<HomeScreen> {
     _sensorService = SensorService();
     _fallDetectorService = FallDetectorService(sensorService: _sensorService);
 
-    // Wire up FSM callbacks
     _fallDetectorService.onStateChanged = _onFsmStateChanged;
     _fallDetectorService.onCrashAnalyzed = _onCrashAnalyzed;
     _fallDetectorService.onUploadError = _onUploadError;
 
-    // Wire up sensor callbacks for logging
     _sensorService.onDataReceived = _onSensorDataReceived;
   }
 
@@ -76,10 +70,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _recordingTimerUI?.cancel();
   }
 
-  // ===========================================================================
-  // FSM Callback Handlers
-  // ===========================================================================
-
   void _onFsmStateChanged(StateTransitionEvent event) {
     setState(() {
       _currentFsmState = event.toState;
@@ -88,11 +78,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final now = DateTime.now();
     final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
 
-    // Log state transition
     _addLog('[$timeStr] FSM: ${event.fromState.name} → ${event.toState.name}');
     _addLog('         Reason: ${event.reason}');
 
-    // Show visual notification for critical state changes
     if (event.toState == FallDetectionState.stationarityCheck && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -133,7 +121,6 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
 
-      // Trigger fall detection flow
       _showFallAlert();
     } else {
       _addLog('[$timeStr] ✅ Server analysis: No fall detected (false alarm)');
@@ -176,10 +163,6 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // ===========================================================================
-  // Mock Test Functions
-  // ===========================================================================
-
   void _startMockTest(String testType) {
     setState(() {
       _fallDetected = true;
@@ -194,18 +177,14 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() {
           _elapsedTime += 0.1;
 
-          // Generate mock data based on test type
           final mockData = switch (testType) {
             'fall' => MockDataGenerator.generateFallData(_elapsedTime),
             'nofall' => MockDataGenerator.generateNoFallData(_elapsedTime),
             _ => MockDataGenerator.generateRandomData(_elapsedTime),
           };
           _accelerometerData.add(mockData);
-
-          // Update countdown based on elapsed time
           _secondsLeft = AppConfig.fallDetectionCountdown - _elapsedTime.floor();
 
-          // Timer expired - call for help
           if (_elapsedTime >= AppConfig.fallDetectionCountdown.toDouble()) {
             timer.cancel();
             _callForHelp();
@@ -215,21 +194,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Runs "positive alarm" test - fetches and sends mock positive data from server
   Future<void> _runPositiveAlarmTest() async {
     try {
-      // Fetch mock positive data from server
       final mockData = await ApiService.fetchMockData('positive');
-
-      // Send data to server for analysis
       final response = await ApiService.sendAccelerometerData(mockData);
 
       if (response.statusCode == 200) {
-        // Parse the response to get fall detection result
         final analysis = json.decode(response.body) as Map<String, dynamic>;
         final isFall = analysis['fallDetected'] as bool? ?? false;
 
-        // Trigger the crash analyzed callback (same as FSM does)
         _onCrashAnalyzed(isFall, analysis);
       } else {
         throw Exception('Server returned status ${response.statusCode}');
@@ -247,21 +220,15 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// Runs "false positive alarm" test - fetches and sends mock false positive data from server
   Future<void> _runFalsePositiveAlarmTest() async {
     try {
-      // Fetch mock false positive data from server
       final mockData = await ApiService.fetchMockData('false-positive');
-
-      // Send data to server for analysis
       final response = await ApiService.sendAccelerometerData(mockData);
 
       if (response.statusCode == 200) {
-        // Parse the response to get fall detection result
         final analysis = json.decode(response.body) as Map<String, dynamic>;
         final isFall = analysis['fallDetected'] as bool? ?? false;
 
-        // Trigger the crash analyzed callback (same as FSM does)
         _onCrashAnalyzed(isFall, analysis);
       } else {
         throw Exception('Server returned status ${response.statusCode}');
@@ -289,10 +256,6 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // ===========================================================================
-  // FSM-Based Real-time Recording Functions
-  // ===========================================================================
-
   void _startRealTimeRecording() {
     setState(() {
       _isRecording = true;
@@ -311,10 +274,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _addLog('         FSM State: ${_currentFsmState.name}');
     _addLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    // Start FSM (sensors + fall detection)
     _fallDetectorService.start();
-
-    // Start UI update timer
     _recordingTimerUI = Timer.periodic(
       const Duration(milliseconds: 100),
       (timer) {
@@ -336,10 +296,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _addLog('         FSM State: ${_currentFsmState.name}');
     _addLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    // Stop FSM
     _fallDetectorService.stop();
-
-    // Stop UI timer
     _recordingTimerUI?.cancel();
 
     setState(() {
@@ -347,23 +304,14 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // ===========================================================================
-  // API Communication Functions
-  // ===========================================================================
-
-  // NOTE: Real-time data upload is now handled automatically by the FSM
-  // The FSM only uploads when: Impact detected → Device becomes stationary
-  // This eliminates continuous uploads and reduces server load by ~99%
-
   void _showFallAlert() {
     setState(() {
       _fallDetected = true;
-      _isRecording = false;  // Stop showing recording view
+      _isRecording = false;
       _secondsLeft = AppConfig.fallDetectionCountdown;
       _elapsedTime = 0.0;
     });
 
-    // Start countdown timer
     _countdownTimer = Timer.periodic(
       const Duration(milliseconds: 100),
       (timer) {
@@ -371,7 +319,6 @@ class _HomeScreenState extends State<HomeScreen> {
           _elapsedTime += 0.1;
           _secondsLeft = AppConfig.fallDetectionCountdown - _elapsedTime.floor();
 
-          // Timer expired - help needed
           if (_elapsedTime >= AppConfig.fallDetectionCountdown.toDouble()) {
             timer.cancel();
             _helpNeeded();
@@ -431,12 +378,10 @@ class _HomeScreenState extends State<HomeScreen> {
   void _addLog(String message) {
     setState(() {
       _logMessages.add(message);
-      // Keep only last 100 log lines to prevent memory issues
       if (_logMessages.length > 100) {
         _logMessages.removeAt(0);
       }
     });
-    // Also print to console
     print(message);
   }
 
@@ -455,10 +400,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // ===========================================================================
-  // UI Build Method
-  // ===========================================================================
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -476,7 +417,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBody() {
-    // Normal State - Show Test Buttons and Connection Tester
     if (!_fallDetected && !_isRecording) {
       return SingleChildScrollView(
         child: Column(
@@ -494,7 +434,6 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    // Recording State
     if (_isRecording) {
       return RecordingView(
         recordingTime: _recordingTime,
@@ -505,7 +444,6 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    // Fall Detected State
     if (_fallDetected && !_helpCalled) {
       return FallDetectedView(
         secondsLeft: _secondsLeft,
@@ -513,14 +451,12 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    // Help Called State
     if (_helpCalled) {
       return HelpCalledView(
         onReset: _resetApp,
       );
     }
 
-    // Fallback
     return const SizedBox.shrink();
   }
 }

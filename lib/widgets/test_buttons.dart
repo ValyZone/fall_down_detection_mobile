@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Widget that displays the test mode buttons
 class TestButtons extends StatelessWidget {
   final VoidCallback onRandomTest;
   final VoidCallback onFallTest;

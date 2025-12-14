@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config.dart';
 
-/// Service for handling API communication with the fall detection server
 class ApiService {
   static const String _csvHeader = '"Time (s)","Acceleration x (m/s^2)",'
       '"Acceleration y (m/s^2)","Acceleration z (m/s^2)",'
@@ -10,7 +9,6 @@ class ApiService {
       '"Gyroscope x (rad/s)","Gyroscope y (rad/s)","Gyroscope z (rad/s)",'
       '"Gyroscope magnitude (rad/s)"\n';
 
-  /// Checks if the server is running and reachable
   static Future<Map<String, dynamic>> checkServerHealth() async {
     try {
       final response = await http
@@ -49,7 +47,6 @@ class ApiService {
     }
   }
 
-  /// Sends accelerometer data to the server for fall detection analysis
   static Future<http.Response> sendAccelerometerData(
       List<String> data) async {
     final csvData = _csvHeader + data.join('\n');
@@ -80,7 +77,6 @@ class ApiService {
     }
   }
 
-  /// Sends user fine confirmation to the server
   static Future<http.Response> sendUserFineConfirmation() async {
     if (AppConfig.debugMode) {
       print('✅ Sending user fine confirmation to: ${AppConfig.userFineUrl}');
@@ -106,7 +102,6 @@ class ApiService {
     }
   }
 
-  /// Fetches mock dataset from the server
   static Future<List<String>> fetchMockData(String dataType) async {
     final url = '${AppConfig.serverUrl}/mock-data/$dataType';
 
@@ -118,7 +113,6 @@ class ApiService {
       final response = await http.get(Uri.parse(url));
 
       if (response.statusCode == 200) {
-        // Parse CSV data - skip header line and return data rows
         final lines = response.body.split('\n');
         final dataRows = lines.skip(1).where((line) => line.trim().isNotEmpty).toList();
 

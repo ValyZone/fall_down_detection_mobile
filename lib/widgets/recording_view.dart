@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/fsm_state.dart';
 
-/// Widget that displays the recording state
 class RecordingView extends StatelessWidget {
   final double recordingTime;
   final int dataPointsCount;
@@ -128,7 +127,6 @@ class RecordingView extends StatelessWidget {
     );
   }
 
-  /// Get color for FSM state indicator
   Color _getStateColor(FallDetectionState state) {
     switch (state) {
       case FallDetectionState.monitoring:

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Widget that displays the help called state
 class HelpCalledView extends StatelessWidget {
   final VoidCallback onReset;
 

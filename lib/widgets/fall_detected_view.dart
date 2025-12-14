@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Widget that displays the fall detected state
 class FallDetectedView extends StatelessWidget {
   final int secondsLeft;
   final VoidCallback onConfirmWellbeing;

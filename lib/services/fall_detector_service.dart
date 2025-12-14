@@ -195,33 +195,12 @@ class FallDetectorService {
   Future<void> _uploadDataToServer() async {
     try {
       final bufferData = sensorService.getBufferSnapshot();
-
-      if (bufferData.isEmpty) {
-        throw Exception('No sensor data in buffer');
-      }
-
       final csvData = _convertBufferToCsv(bufferData);
       final response = await ApiService.sendAccelerometerData(csvData);
 
       if (response.statusCode == 200) {
-        if (AppConfig.debugMode) {
-          print('========================================');
-          print('SERVER RESPONSE DEBUG:');
-          print('Status Code: ${response.statusCode}');
-          print('Response Body: ${response.body}');
-          print('========================================');
-        }
-
         final analysis = _parseServerResponse(response.body);
-        final isFall = analysis['fallDetected'] as bool? ?? false;
-
-        if (AppConfig.debugMode) {
-          print('PARSED ANALYSIS:');
-          print('Full analysis map: $analysis');
-          print('fallDetected field: ${analysis['fallDetected']}');
-          print('isFall boolean: $isFall');
-          print('========================================');
-        }
+        final isFall = analysis['fallDetected'] as bool;
 
         _logCrashEvent(
           isFall: isFall,
@@ -275,12 +254,7 @@ class FallDetectorService {
   }
 
   Map<String, dynamic> _parseServerResponse(String responseBody) {
-    try {
-      final json = jsonDecode(responseBody) as Map<String, dynamic>;
-      return json;
-    } catch (e) {
-      return {'isFall': false, 'error': 'Invalid server response'};
-    }
+    return jsonDecode(responseBody) as Map<String, dynamic>;
   }
 
   void _logCrashEvent({
@@ -293,18 +267,12 @@ class FallDetectorService {
       'peakSvm': _peakImpactValue,
       'peakGs': _peakImpactValue / 9.80665,
       'isFall': isFall,
-      'timeSinceImpact': _impactTimestamp != null
-          ? DateTime.now().difference(_impactTimestamp!).inSeconds
-          : null,
+      'timeSinceImpact': DateTime.now().difference(_impactTimestamp!).inSeconds,
       'bufferSize': bufferSize,
       'analysis': analysis,
     };
 
     _crashLog.add(event);
-
-    if (AppConfig.debugMode) {
-      print('Crash log entry: $event');
-    }
   }
 
   void reset() {

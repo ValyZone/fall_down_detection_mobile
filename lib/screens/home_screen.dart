@@ -201,22 +201,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (response.statusCode == 200) {
         final analysis = json.decode(response.body) as Map<String, dynamic>;
-        final isFall = analysis['fallDetected'] as bool? ?? false;
-
+        final isFall = analysis['fallDetected'] as bool;
         _onCrashAnalyzed(isFall, analysis);
-      } else {
-        throw Exception('Server returned status ${response.statusCode}');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ Error sending data: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -227,22 +221,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (response.statusCode == 200) {
         final analysis = json.decode(response.body) as Map<String, dynamic>;
-        final isFall = analysis['fallDetected'] as bool? ?? false;
-
+        final isFall = analysis['fallDetected'] as bool;
         _onCrashAnalyzed(isFall, analysis);
-      } else {
-        throw Exception('Server returned status ${response.statusCode}');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ Error sending data: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 

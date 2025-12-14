@@ -287,8 +287,24 @@ class FallDetectorService {
 
       if (response.statusCode == 200) {
         // Parse server response
+        if (AppConfig.debugMode) {
+          print('========================================');
+          print('SERVER RESPONSE DEBUG:');
+          print('Status Code: ${response.statusCode}');
+          print('Response Body: ${response.body}');
+          print('========================================');
+        }
+
         final analysis = _parseServerResponse(response.body);
         final isFall = analysis['fallDetected'] as bool? ?? false;
+
+        if (AppConfig.debugMode) {
+          print('PARSED ANALYSIS:');
+          print('Full analysis map: $analysis');
+          print('fallDetected field: ${analysis['fallDetected']}');
+          print('isFall boolean: $isFall');
+          print('========================================');
+        }
 
         // Log the crash event
         _logCrashEvent(

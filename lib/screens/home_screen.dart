@@ -222,16 +222,17 @@ class _HomeScreenState extends State<HomeScreen> {
       final mockData = await ApiService.fetchMockData('positive');
 
       // Send data to server for analysis
-      await ApiService.sendAccelerometerData(mockData);
+      final response = await ApiService.sendAccelerometerData(mockData);
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Positive alarm data sent successfully'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 2),
-          ),
-        );
+      if (response.statusCode == 200) {
+        // Parse the response to get fall detection result
+        final analysis = json.decode(response.body) as Map<String, dynamic>;
+        final isFall = analysis['fallDetected'] as bool? ?? false;
+
+        // Trigger the crash analyzed callback (same as FSM does)
+        _onCrashAnalyzed(isFall, analysis);
+      } else {
+        throw Exception('Server returned status ${response.statusCode}');
       }
     } catch (e) {
       if (mounted) {
@@ -253,16 +254,17 @@ class _HomeScreenState extends State<HomeScreen> {
       final mockData = await ApiService.fetchMockData('false-positive');
 
       // Send data to server for analysis
-      await ApiService.sendAccelerometerData(mockData);
+      final response = await ApiService.sendAccelerometerData(mockData);
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ False positive alarm data sent successfully'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
+      if (response.statusCode == 200) {
+        // Parse the response to get fall detection result
+        final analysis = json.decode(response.body) as Map<String, dynamic>;
+        final isFall = analysis['fallDetected'] as bool? ?? false;
+
+        // Trigger the crash analyzed callback (same as FSM does)
+        _onCrashAnalyzed(isFall, analysis);
+      } else {
+        throw Exception('Server returned status ${response.statusCode}');
       }
     } catch (e) {
       if (mounted) {
@@ -356,6 +358,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showFallAlert() {
     setState(() {
       _fallDetected = true;
+      _isRecording = false;  // Stop showing recording view
       _secondsLeft = AppConfig.fallDetectionCountdown;
       _elapsedTime = 0.0;
     });

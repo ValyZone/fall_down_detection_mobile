@@ -11,7 +11,7 @@ class AppConfig {
   static String get userFineUrl => '$serverUrl$userFineEndpoint';
 
   // App Configuration
-  static const int fallDetectionCountdown = 3; // seconds before auto-calling for help
+  static const int fallDetectionCountdown = 60; // seconds before auto-calling for help
   static const int bufferDurationSeconds = 20; // Keep 20 seconds of data
 
   // Fall Detection Parameters

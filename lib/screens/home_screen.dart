@@ -277,16 +277,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _confirmWellbeing() {
-    _cancelAllTimers();
-    setState(() {
-      _fallDetected = false;
-      _helpCalled = false;
-      _secondsLeft = AppConfig.fallDetectionCountdown;
-      _accelerometerData.clear();
-    });
-  }
-
   void _resetApp() {
     _cancelAllTimers();
     setState(() {

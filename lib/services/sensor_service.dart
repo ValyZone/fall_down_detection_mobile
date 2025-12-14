@@ -27,7 +27,6 @@ class SensorService {
 
   // State
   bool _isRunning = false;
-  DateTime? _startTime;
 
   // Rolling window for stationarity detection (1 second = 50 samples)
   final List<double> _recentSvmValues = [];
@@ -38,7 +37,6 @@ class SensorService {
     if (_isRunning) return;
 
     _isRunning = true;
-    _startTime = DateTime.now();
     _buffer.clear();
     _recentSvmValues.clear();
 

@@ -25,8 +25,14 @@ class FallDetectorService {
   /// Timer for impact window (10 seconds to detect stationarity)
   Timer? _impactWindowTimer;
 
+  /// Timer for post-impact data collection (5 seconds after stationarity)
+  Timer? _postImpactTimer;
+
   /// Flag indicating if a potential crash has been detected
   bool _possibleCrash = false;
+
+  /// Flag indicating if stationarity has been processed
+  bool _stationarityProcessed = false;
 
   /// Timestamp of when impact was detected
   DateTime? _impactTimestamp;
@@ -77,6 +83,7 @@ class FallDetectorService {
   void stop() {
     sensorService.stop();
     _impactWindowTimer?.cancel();
+    _postImpactTimer?.cancel();
   }
 
   /// Transitions to a new state
@@ -131,12 +138,15 @@ class FallDetectorService {
   void _onEnterMonitoring() {
     // Reset flags
     _possibleCrash = false;
+    _stationarityProcessed = false;
     _impactTimestamp = null;
     _peakImpactValue = 0.0;
 
     // Cancel any timers
     _impactWindowTimer?.cancel();
     _impactWindowTimer = null;
+    _postImpactTimer?.cancel();
+    _postImpactTimer = null;
   }
 
   void _onImpactDetected(double svm) {
@@ -176,11 +186,32 @@ class FallDetectorService {
     }
   }
 
+  void _onPostImpactCollectionComplete() {
+    // 5 seconds of post-impact data collected, now upload
+    if (_currentState == FallDetectionState.stationarityCheck) {
+      final timeSinceImpact = _impactTimestamp != null
+          ? DateTime.now().difference(_impactTimestamp!).inSeconds
+          : 0;
+
+      _transitionTo(
+        FallDetectionState.upload,
+        reason: 'Post-impact data collection complete (5s)',
+        metadata: {
+          'timeSinceImpact': timeSinceImpact,
+          'peakSvm': _peakImpactValue,
+          'postImpactSeconds': AppConfig.postImpactCollectionSeconds,
+        },
+      );
+    }
+  }
+
   // ==========================================================================
   // State 2: Stationarity Check
   // ==========================================================================
 
   void _onEnterStationarityCheck() {
+    // Reset stationarity flag for this check cycle
+    _stationarityProcessed = false;
     // Continue monitoring for stationarity
     // SensorService will call _onStationarityDetected when conditions met
   }
@@ -188,6 +219,11 @@ class FallDetectorService {
   void _onStationarityDetected() {
     if (_currentState != FallDetectionState.stationarityCheck) {
       // Ignore stationarity in other states (e.g., traffic light without impact)
+      return;
+    }
+
+    if (_stationarityProcessed) {
+      // Already processing this stationarity event, ignore repeated callbacks
       return;
     }
 
@@ -200,19 +236,29 @@ class FallDetectorService {
       return;
     }
 
+    // Mark as processed to prevent multiple timer starts
+    _stationarityProcessed = true;
+
     // Stationarity after impact = CRASH CANDIDATE!
+    // Wait 5 more seconds to collect post-impact stillness data
     final timeSinceImpact = _impactTimestamp != null
         ? DateTime.now().difference(_impactTimestamp!).inSeconds
         : 0;
 
-    _transitionTo(
-      FallDetectionState.upload,
-      reason: 'Stationarity confirmed after impact',
-      metadata: {
-        'timeSinceImpact': timeSinceImpact,
-        'peakSvm': _peakImpactValue,
-      },
+    // Cancel impact window timer (no longer needed)
+    _impactWindowTimer?.cancel();
+    _impactWindowTimer = null;
+
+    // Start post-impact collection timer
+    _postImpactTimer?.cancel();
+    _postImpactTimer = Timer(
+      Duration(seconds: AppConfig.postImpactCollectionSeconds),
+      _onPostImpactCollectionComplete,
     );
+
+    if (AppConfig.debugMode) {
+      print('Stationarity detected at ${timeSinceImpact}s after impact. Collecting 5s post-mortem data...');
+    }
   }
 
   // ==========================================================================
@@ -242,7 +288,7 @@ class FallDetectorService {
       if (response.statusCode == 200) {
         // Parse server response
         final analysis = _parseServerResponse(response.body);
-        final isFall = analysis['isFall'] as bool? ?? false;
+        final isFall = analysis['fallDetected'] as bool? ?? false;
 
         // Log the crash event
         _logCrashEvent(
@@ -257,7 +303,7 @@ class FallDetectorService {
         // Return to monitoring
         _transitionTo(
           FallDetectionState.monitoring,
-          reason: isFall ? 'Server confirmed fall' : 'Server rejected (false positive)',
+          reason: isFall ? 'Server confirmed fall' : 'No fall detected',
           metadata: analysis,
         );
       } else {
@@ -340,6 +386,7 @@ class FallDetectorService {
   /// Manually resets the FSM to monitoring state
   void reset() {
     _impactWindowTimer?.cancel();
+    _postImpactTimer?.cancel();
     _transitionTo(
       FallDetectionState.monitoring,
       reason: 'Manual reset',
@@ -349,6 +396,7 @@ class FallDetectorService {
   /// Disposes of resources
   void dispose() {
     _impactWindowTimer?.cancel();
+    _postImpactTimer?.cancel();
     sensorService.dispose();
   }
 }
